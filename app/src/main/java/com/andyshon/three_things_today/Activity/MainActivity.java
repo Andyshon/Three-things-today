@@ -144,7 +144,7 @@ public class MainActivity extends AppCompatActivity implements View.OnFocusChang
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) throws Exception {
-                        Toast.makeText(MainActivity.this, "error:" + throwable.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, "Error while writing a thing!" + throwable.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -186,7 +186,7 @@ public class MainActivity extends AppCompatActivity implements View.OnFocusChang
                 }, new Consumer<Throwable>() {
                     @Override
                     public void accept(Throwable throwable) throws Exception {
-                        Toast.makeText(MainActivity.this, "Error! " + throwable.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(MainActivity.this, "Error while getting three things!", Toast.LENGTH_SHORT).show();
                     }
                 });
     }

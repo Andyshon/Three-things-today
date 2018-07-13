@@ -57,54 +57,70 @@ public class ThreeThingsDatabaseModel {
 
 
     public Observable<String[]> readThreeThings (int year, int month, int dayOfMonth) {
-        // If there are no current results for the selection args, we just return empty things.
-        String[] results = {
-                "",
-                "",
-                ""
-        };
-
-        String[] projection = {
-                ThreeThingsContract.ThreeThingsEntry.COLUMN_NAME_FIRST_THING,
-                ThreeThingsEntry.COLUMN_NAME_SECOND_THING,
-                ThreeThingsEntry.COLUMN_NAME_THIRD_THING
-        };
-        String selection = ThreeThingsEntry.COLUMN_NAME_YEAR + " = ? AND " +
-                ThreeThingsEntry.COLUMN_NAME_MONTH + " = ? AND " +
-                ThreeThingsEntry.COLUMN_NAME_DAY_OF_MONTH + " = ?";
-        String[] selectionArgs = {
-                Integer.toString(year),
-                Integer.toString(month),
-                Integer.toString(dayOfMonth)
-        };
-
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.query(
-                ThreeThingsEntry.TABLE_NAME,
-                projection,
-                selection,
-                selectionArgs,
-                null,
-                null,
-                null);
-
-        if (cursor.moveToFirst()) {
-            results[0] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_FIRST_THING));
-            results[1] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_SECOND_THING));
-            results[2] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_THIRD_THING));
-        }
-        cursor.close();
 
         return Observable.create(new ObservableOnSubscribe<String[]>() {
             @Override
             public void subscribe(ObservableEmitter<String[]> e) throws Exception {
+
+                // If there are no current results for the selection args, we just return empty things.
+                String[] results = {
+                        "",
+                        "",
+                        ""
+                };
+
+                String[] projection = {
+                        ThreeThingsContract.ThreeThingsEntry.COLUMN_NAME_FIRST_THING,
+                        ThreeThingsEntry.COLUMN_NAME_SECOND_THING,
+                        ThreeThingsEntry.COLUMN_NAME_THIRD_THING
+                };
+                String selection = ThreeThingsEntry.COLUMN_NAME_YEAR + " = ? AND " +
+                        ThreeThingsEntry.COLUMN_NAME_MONTH + " = ? AND " +
+                        ThreeThingsEntry.COLUMN_NAME_DAY_OF_MONTH + " = ?";
+                String[] selectionArgs = {
+                        Integer.toString(year),
+                        Integer.toString(month),
+                        Integer.toString(dayOfMonth)
+                };
+
+                SQLiteDatabase db = dbHelper.getReadableDatabase();
+                Cursor cursor = db.query(
+                        ThreeThingsEntry.TABLE_NAME,
+                        projection,
+                        selection,
+                        selectionArgs,
+                        null,
+                        null,
+                        null);
+
+                if (cursor.moveToFirst()) {
+                    results[0] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_FIRST_THING));
+                    results[1] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_SECOND_THING));
+                    results[2] = cursor.getString(cursor.getColumnIndexOrThrow(ThreeThingsEntry.COLUMN_NAME_THIRD_THING));
+                }
+                cursor.close();
 
                 if (!e.isDisposed()) {
                     e.onNext(results);
                     e.onComplete();
                 }
             }
-        });
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
+
+    public Completable writeTask (ContentValues values) {
+
+        return Completable.fromAction(new Action() {
+            @Override
+            public void run() throws Exception {
+                writeContentValues(values);
+            }
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
     }
 
 
@@ -167,18 +183,5 @@ public class ThreeThingsDatabaseModel {
         }
 
         return stringWriter.toString();
-    }
-
-
-    public Completable writeTask (ContentValues values) {
-
-        return Completable.fromAction(new Action() {
-            @Override
-            public void run() throws Exception {
-                writeContentValues(values);
-            }
-        })
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread());
     }
 }

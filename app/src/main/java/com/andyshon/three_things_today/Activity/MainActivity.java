@@ -4,6 +4,7 @@ import android.app.DatePickerDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +30,11 @@ import com.andyshon.three_things_today.database.ThreeThingsDatabaseModel;
 import java.io.File;
 import java.text.DateFormat;
 import java.util.Calendar;
+
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 
 
 public class MainActivity extends AppCompatActivity implements View.OnFocusChangeListener, TextWatcher, DatePickerDialog.OnDateSetListener, DatabaseCallback {
@@ -117,7 +123,30 @@ public class MainActivity extends AppCompatActivity implements View.OnFocusChang
         values.put(ThreeThingsEntry.COLUMN_NAME_SECOND_THING, secondThingEditText.getText().toString().trim());
         values.put(ThreeThingsEntry.COLUMN_NAME_THIRD_THING, thirdThingEditText.getText().toString().trim());
 
-        databaseModel.writeTask(progressBar, values);
+
+        Handler handler = new Handler();
+
+        // if we type fast task doesn't have time to store in db with timer()
+        databaseModel.writeTask(values)
+                //.timer(500, TimeUnit.MILLISECONDS)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Action() {
+                    @Override
+                    public void run() throws Exception {
+                        handler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                progressBar.setVisibility(View.INVISIBLE);
+                            }
+                        }, 500);
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        Toast.makeText(MainActivity.this, "error:" + throwable.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
 
@@ -140,13 +169,26 @@ public class MainActivity extends AppCompatActivity implements View.OnFocusChang
 
         TextView dateTextView = (TextView) findViewById(R.id.tvDate);
         DateFormat dateFormat = android.text.format.DateFormat.getDateFormat(getApplicationContext());
-        String str = dateFormat.format(c.getTime()) + ", Я ...";
+        String str = dateFormat.format(c.getTime()) + ", I ...";
         dateTextView.setText(str);
     }
 
 
     private void updateThreeThingsText() {
-        databaseModel.readTasks(mSelectedYear, mSelectedMonth, mSelectedDayOfMonth);
+        databaseModel.readThreeThings(mSelectedYear,mSelectedMonth,mSelectedDayOfMonth)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<String[]>() {
+                    @Override
+                    public void accept(String[] strings) throws Exception {
+                        onGetThreeThings(strings);
+                    }
+                }, new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Exception {
+                        Toast.makeText(MainActivity.this, "Error! " + throwable.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
 
@@ -178,8 +220,7 @@ public class MainActivity extends AppCompatActivity implements View.OnFocusChang
     }
 
 
-    @Override
-    public void onGetTasks(String... s) {
+    private void onGetThreeThings (String... s) {
         firstThingEditText.setText(s[0]);
         secondThingEditText.setText(s[1]);
         thirdThingEditText.setText(s[2]);

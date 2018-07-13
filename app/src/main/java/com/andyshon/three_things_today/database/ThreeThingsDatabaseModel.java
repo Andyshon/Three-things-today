@@ -6,8 +6,6 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Handler;
 import android.util.Log;
-import android.view.View;
-import android.widget.ProgressBar;
 
 import com.andyshon.three_things_today.database.ThreeThingsContract.ThreeThingsEntry;
 
@@ -19,6 +17,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import au.com.bytecode.opencsv.CSVWriter;
+import io.reactivex.Completable;
+import io.reactivex.Observable;
+import io.reactivex.ObservableEmitter;
+import io.reactivex.ObservableOnSubscribe;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Action;
+import io.reactivex.schedulers.Schedulers;
 
 
 public class ThreeThingsDatabaseModel {
@@ -51,7 +56,7 @@ public class ThreeThingsDatabaseModel {
     }
 
 
-    private String[] readThreeThings(int year, int month, int dayOfMonth) {
+    public Observable<String[]> readThreeThings (int year, int month, int dayOfMonth) {
         // If there are no current results for the selection args, we just return empty things.
         String[] results = {
                 "",
@@ -90,55 +95,16 @@ public class ThreeThingsDatabaseModel {
         }
         cursor.close();
 
-        return results;
-    }
-
-
-    private String exportDatabaseToCsvString() {
-        StringWriter stringWriter = new StringWriter();
-        CSVWriter csvWriter = new CSVWriter(stringWriter);
-        csvWriter.writeNext(ThreeThingsEntry.COLUMNS);
-
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT * FROM " + ThreeThingsEntry.TABLE_NAME, null);
-        while (cursor.moveToNext()) {
-            List<String> data = new ArrayList<String>(ThreeThingsEntry.COLUMNS.length);
-            for (String column : ThreeThingsEntry.COLUMNS) {
-                data.add(cursor.getString(cursor.getColumnIndexOrThrow(column)));
-            }
-            csvWriter.writeNext(data.toArray(new String[0]));
-        }
-
-        try {
-            csvWriter.close();
-        } catch (IOException e) {
-            // Ignore
-        } finally {
-            cursor.close();
-        }
-
-        return stringWriter.toString();
-    }
-
-
-    public void readTasks (final int mSelectedYear, final int mSelectedMonth, final int mSelectedDayOfMonth) {
-
-        final Handler handler = new Handler();
-        Thread thread = new Thread(new Runnable() {
+        return Observable.create(new ObservableOnSubscribe<String[]>() {
             @Override
-            public void run() {
-                final String[] tasks = readThreeThings(mSelectedYear, mSelectedMonth, mSelectedDayOfMonth);
+            public void subscribe(ObservableEmitter<String[]> e) throws Exception {
 
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        callback.onGetTasks(tasks);
-                    }
-                });
+                if (!e.isDisposed()) {
+                    e.onNext(results);
+                    e.onComplete();
+                }
             }
         });
-        thread.start();
-
     }
 
 
@@ -177,23 +143,42 @@ public class ThreeThingsDatabaseModel {
     }
 
 
-    public void writeTask (final ProgressBar progressBar, final ContentValues values) {
+    private String exportDatabaseToCsvString() {
+        StringWriter stringWriter = new StringWriter();
+        CSVWriter csvWriter = new CSVWriter(stringWriter);
+        csvWriter.writeNext(ThreeThingsEntry.COLUMNS);
 
-        final Handler handler = new Handler();
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-
-                writeContentValues(values);
-
-                handler.postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                       progressBar.setVisibility(View.INVISIBLE);
-                    }
-                }, 500);
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT * FROM " + ThreeThingsEntry.TABLE_NAME, null);
+        while (cursor.moveToNext()) {
+            List<String> data = new ArrayList<String>(ThreeThingsEntry.COLUMNS.length);
+            for (String column : ThreeThingsEntry.COLUMNS) {
+                data.add(cursor.getString(cursor.getColumnIndexOrThrow(column)));
             }
-        });
-        thread.start();
+            csvWriter.writeNext(data.toArray(new String[0]));
+        }
+
+        try {
+            csvWriter.close();
+        } catch (IOException e) {
+            // Ignore
+        } finally {
+            cursor.close();
+        }
+
+        return stringWriter.toString();
+    }
+
+
+    public Completable writeTask (ContentValues values) {
+
+        return Completable.fromAction(new Action() {
+            @Override
+            public void run() throws Exception {
+                writeContentValues(values);
+            }
+        })
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
     }
 }

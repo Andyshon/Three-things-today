@@ -4,6 +4,5 @@ import java.io.File;
 
 
 public interface DatabaseCallback {
-    void onGetTasks(String... s);
     void onExportFile(File tempFile);
 }
